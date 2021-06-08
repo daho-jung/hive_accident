@@ -1,0 +1,154 @@
+//year data
+insert overwrite local directory '/mnt/hgfs/hh/hive_work/tt' 
+select 
+substring(from_unixtime(unix_timestamp(accdate, 'dd/MM/yyyy')),1,4) accdate from accident;
+
+//month data
+insert overwrite local directory '/mnt/hgfs/hh/hive_work/tt' 
+select 
+substring(from_unixtime(unix_timestamp(accdate, 'dd/MM/yyyy')),6,2) accdate from accident;
+
+//day
+insert overwrite local directory '/mnt/hgfs/hh/hive_work/tt' 
+select 
+substring(from_unixtime(unix_timestamp(accdate, 'dd/MM/yyyy')),9,2) accdate from accident;
+
+// columns
+Accident_Index	Location_Easting_OSGR	Location_Northing_OSGR	Longitude	Latitude	Police_Force	Accident_Severity	Number_of_Vehicles	Number_of_Casualties	accDate	Day_of_Week	Time	Local_Authority_District	Local_Authority_Highway	1st_Road_Class	1st_Road_Number	Road_Type	Speed_limit	Junction_Detail	Junction_Control	2nd_Road_Class	2nd_Road_Number	Pedestrian_Crossing_Human_Control	Pedestrian_Crossing_Physical_Facilities	Light_Conditions	Weather_Conditions	Road_Surface_Conditions	Special_Conditions_at_Site	Carriageway_Hazards	Urban_or_Rural_Area	Did_Police_Officer_Attend_Scene_of_Accident	LSOA_of_Accident_Location	year	month	day
+
+		!!useless!!
+//create view	
+create view if not exists acc_1 
+as select a.Accident_Index, b.label police_force,
+c.label accident_severity ,number_of_vehicles,
+Number_of_Casualties, accDate, d.label Day_of_Week, time, e.label Local_Authority_District,
+f.label Local_Authority_Highway, g.label 1st_Road_Class, 1st_Road_Number,
+ h.label Road_Type, speed_limit, i.label junction_detail,j.label Junction_Control,
+k.label 2nd_Road_Class, 2nd_Road_Number,l.label Pedestrian_Crossing_Human_Control, m.label Pedestrian_Crossing_Physical_Facilities,n.label Light_Conditions,Weather_Conditions, Road_Surface_Conditions,Special_Conditions_at_Site, Carriageway_Hazards,
+p.label Urban_or_Rural_Area,
+q.label Did_Police_Officer_Attend_Scene_of_Accident, LSOA_of_Accident_Location, Vehicle_Reference,s.label Vehicle_Type,Towing_and_Articulation,
+t.label Vehicle_Manoeuvre,v.label Vehicle_Location_Restricted_Lane,
+u.label Junction_Location, 
+Skidding_and_Overturning,Hit_Object_in_Carriageway,
+Vehicle_Leaving_Carriageway,Age_of_Driver,
+w.label Age_Band_of_Driver,
+x.label Sex_of_Driver
+from accident a 
+join Police_Force b on a.police_force=b.code 
+join accident_severity c on a.accident_severity=c.code
+join Day_of_Week d on a.Day_of_Week	=d.code
+join Local_Authority_District e on a.Local_Authority_District=e.code
+join Local_Authority_Highway f on a.Local_Authority_Highway=f.code
+join Road_Class g on a.1st_Road_Class=g.code
+join Road_Type h on a.Road_Type=h.code
+join junction_detail i on a.junction_detail=i.code
+join Junction_Control j on a.Junction_Control=j.code
+join Road_Class k on a.2nd_Road_Class=k.code
+join Ped_cross_human l on a.Pedestrian_Crossing_Human_Control=l.code 
+join Ped_cross_physical m on a.Pedestrian_Crossing_Physical_Facilities=m.code
+join Light_Conditions n on a.Light_Conditions=n.code
+join Urban_Rural p on a.Urban_or_Rural_Area=p.code
+join police_officer_attend q on a.Did_Police_Officer_Attend_Scene_of_Accident=q.code
+join vehicle r on a.Accident_index=r.Accident_index
+join vehicle_type s on r.vehicle_type=s.code
+join Vehicle_Manoeuvre t on r.Vehicle_Manoeuvre=t.code
+join Junction_Location u on r.Junction_Location=u.code
+join Vehicle_Location v on r.Vehicle_Location_Restricted_Lane=v.code
+join Age_Band w on r.Age_Band_of_Driver=w.code
+join Sex_of_Driver x on r.Sex_of_Driver=x.code
+;
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+//연, 월별 사고건수 합계
+select year,month,count(year) from accident group by year,month;
+
+//속도제한, 사고심각도에 따른 사망자수
+speed_limit, accident_severity
+select b.label, speed_limit, sum(number_of_casualties) from accident a
+join accident_severity b on a.accident_severity=b.code
+group by speed_limit, b.label;
+
+//사고심각도, 연령대-> 사망자수
+select b.label, c.label, sum(number_of_casualties) from accident a
+join accident_severity b on a.accident_severity=b.code
+join casualty d on a.accident_index=d.accident_index
+join age_band c on d.Age_Band_of_Casualty=c.code
+group by b.label,c.label
+
+//요일, 속도제한에 따른 사고건수
+select b.label day_of_week, speed_limit, count(time) from accident a 
+join day_of_week b on a.day_of_week=b.code
+group by b.label,speed_limit;
+
+//날씨에 따른 사망자수, 사고건수
+select b.label, sum(number_of_casualties), count(accident_index) from accident a
+join weather_conditions b on a.weather_conditions=b.code
+group by b.label;
+
+//차량 속력별 보행자 사고건수
+select count(time),speed_limit
+from accident a join casualty b on a.accident_index=b.accident_index
+where b.casualty_class=2
+group by speed_limit;
+
+//차종별 보행자 사고건수
+select c.label , count(time)
+from accident a join vehicle b on a.accident_index=b.accident_index
+join vehicle_type c on b.vehicle_type= c.code
+join casualty d on a.accident_index=d.accident_index
+where d.casualty_class=2
+group by c.label;
+
+//속력, 차종별 사고건수
+select c.label , speed_limit, count(time)
+from accident a join vehicle b on a.accident_index=b.accident_index
+join vehicle_type c on b.vehicle_type= c.code
+join casualty d on a.accident_index=d.accident_index
+where d.casualty_class=2
+group by c.label, speed_limit;
+
+//보행자 사고중 도로별 사고건수
+select count(time), c.label
+from accident a join casualty b on a.accident_index=b.accident_index
+join road_class c on a.1st_road_class=c.code
+where b.casualty_class=2
+group by c.label;
+
+//보행자 사고중 도로상황별,날씨별 사고건수
+select count(time), c.label, a.road_surface_conditions
+from accident a join casualty b on a.accident_index=b.accident_index
+join weather_conditions c on a.weather_conditions=c.code
+where b.casualty_class=2
+group by c.label, a.road_surface_conditions;
+
+//날씨 ~ 심각도
+select c.label, avg(accident_severity)
+from accident a join weather_conditions c on a.weather_conditions=c.code
+group by c.label;
+
+//도로상태~심각도
+select road_surface_conditions, avg(accident_severity)
+from accident a
+group by road_surface_conditions;
+
+//제한속도~심각도
+select speed_limit, avg(accident_severity)
+from accident a
+group by speed_limit;
+
+//성별, 나이별 사고건수
+select d.label, c.label, max(b.accident_index)
+from accident a join vehicle b on a.accident_index=b.accident_index
+join sex_of_driver c on b.sex_of_driver=c.code
+join age_band d on b.age_band_of_driver=d.code
+group by d.label, c.label;
+
+select sex_of_driver, age_band_of_driver, max(b.accident_index)
+from accident a join vehicle b on a.accident_index=b.accident_index
+group by sex_of_driver, age_band_of_driver;
+
+//제한속도 별 연루된 차량 수, 사상자수
+select speed_limit,count(b.accident_index),count(c.accident_index)
+from accident a join vehicle b on a.accident_index=b.accident_index
+join casualty c on a.accident_index=c.accident_index
+group by speed_limit;
